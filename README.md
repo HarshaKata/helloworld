@@ -114,7 +114,7 @@ To run the services locally, use the following commands:
 
 2. For **world-service**:
     ```bash
-    minikube service world
+    minikube service worldservice
     # Add /world in the browser to get the response "World"
     ```
 
