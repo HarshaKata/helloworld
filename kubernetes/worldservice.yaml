@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worldservice
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: worldservice
+  template:
+    metadata:
+      labels:
+        app: worldservice
+    spec:
+      containers:
+      - name: world
+        image: harshakata/worldservice:latest #harshakata is my docker hub username (my-docker-hub-username/world)
+        ports:
+        - containerPort: 3003
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: worldservice
+spec:
+  selector:
+    app: worldservice
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 3003
+  type: LoadBalancer
