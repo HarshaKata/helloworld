@@ -50,16 +50,20 @@
     ```bash
     cd hello-service
     docker build -t helloservice:latest -f Dockerfile.helloservice .
-    docker tag helloservice:latest <your-dockerhub-username>/helloservice:latest
-    docker push <your-dockerhub-username>/helloservice:latest
+    docker tag helloservice:latest harshakata/helloservice:latest
+    # harshakata is my docker hub username. Command is docker tag helloservice:latest <your-dockerhub-username>/helloservice:latest
+    docker push harshakata/helloservice:latest
+    # harshakata is my docker hub username. Command is docker push <your-dockerhub-username>/helloservice:latest
     ```
 
 3. For **world-service**:
     ```bash
     cd ../world-service
     docker build -t worldservice:latest -f Dockerfile.worldservice .
-    docker tag worldservice:latest <your-dockerhub-username>/worldservice:latest
-    docker push <your-dockerhub-username>/worldservice:latest
+    docker tag worldservice:latest harshakata/worldservice:latest
+    # harshakata is my docker hub username. Command is docker tag worldservice:latest <your-dockerhub-username>/worldservice:latest
+    docker push harshakata/worldservice:latest
+    # harshakata is my docker hub username. Command is docker push <your-dockerhub-username>/worldservice:latest
     ```
 
 ## 3. Running Services Locally
@@ -68,7 +72,8 @@ To run the services locally, use the following commands:
 
 1. **Hello Service**:
     ```bash
-    docker run -p 3002:3002 <your-dockerhub-username>/helloservice
+    docker run -p 3002:3002 harshakata/helloservice
+    # harshakata is my docker hub username. Command is docker run -p 3002:3002 <your-dockerhub-username>/helloservice
     # Open http://localhost:3002/hello to get the response "Hello"
     ```
     ![Service Running locally](screenshots/docker%20hello.png)
@@ -76,7 +81,8 @@ To run the services locally, use the following commands:
 
 2. **World Service**:
     ```bash
-    docker run -p 3003:3003 <your-dockerhub-username>/worldservice
+    docker run -p 3003:3003 harshakata/worldservice
+     # harshakata is my docker hub username. Command is docker run -p 3003:3003 <your-dockerhub-username>/worldservice
     # Open http://localhost:3003/world to get the response "World"
     ```
     ![Service Running locally](screenshots/docker%20world.png)
