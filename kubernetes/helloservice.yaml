@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: helloservice
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: helloservice
+  template:
+    metadata:
+      labels:
+        app: helloservice
+    spec:
+      containers:
+      - name: helloservice
+        image: harshakata/helloservice:latest  #harshakata is my docker hub username (my-docker-hub-username/helloservice)
+        ports:
+        - containerPort: 3002
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: helloservice
+spec:
+  selector:
+    app: helloservice
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 3002
+  type: LoadBalancer
