@@ -71,12 +71,16 @@ To run the services locally, use the following commands:
     docker run -p 3002:3002 <your-dockerhub-username>/helloservice
     # Open http://localhost:3002/hello to get the response "Hello"
     ```
+    ![Service Running locally](screenshots/docker%20hello.png)
+    ![Service Running locally](screenshots/localhost%20hello.png)
 
 2. **World Service**:
     ```bash
     docker run -p 3003:3003 <your-dockerhub-username>/worldservice
     # Open http://localhost:3003/world to get the response "World"
     ```
+    ![Service Running locally](screenshots/docker%20world.png)
+    ![Service Running locally](screenshots/localhost%20world.png)
 
 ## 4. Deploying on Kubernetes
 
@@ -99,12 +103,18 @@ To run the services locally, use the following commands:
     minikube service helloservice
     # Add /hello in the browser to get the response "Hello"
     ```
+    ![Service Running on minikube](screenshots/kubernetes%20hello.png)
+    ![Service Running minikube](screenshots/minikube%20hello.png)
 
 2. For **world-service**:
     ```bash
     minikube service world
     # Add /world in the browser to get the response "World"
     ```
+
+    ![Service Running on minikube](screenshots/kubernetes%20world.png)
+    ![Service Running minikube](screenshots/minikube%20world.png)
+   
 
 ## 5. Running the Script to Print "Hello World"
 
@@ -113,6 +123,9 @@ To run the services locally, use the following commands:
     cd ..
     node combine.js
     ```
+
+    ![Printing hello world](screenshots/hello%20world.png)
+
 
 ## 6. Docker Image Links
 
