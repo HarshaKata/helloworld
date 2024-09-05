@@ -1,0 +1,13 @@
+# Using Node.js base image
+FROM node:14
+# Creating and setting working directory
+WORKDIR /usr/src/app
+# Installing required dependencies
+COPY package*.json ./
+RUN npm install
+# Copying the application code
+COPY worldservice.js ./
+# Exposing the port
+EXPOSE 3003
+# Running the application
+CMD ["node", "worldservice.js"]
