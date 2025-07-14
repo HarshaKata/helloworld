@@ -6,7 +6,6 @@
 3. [Traffic Switching Mechanism](#traffic-switching-mechanism)
 4. [Resource Management and Conflict Resolution](#resource-management-and-conflict-resolution)
 5. [Automatic vs Manual Resource Updates](#automatic-vs-manual-resource-updates)
-6. [Detailed Q&A from Technical Discussion](#detailed-qa-from-technical-discussion)
 
 ---
 
@@ -20,7 +19,6 @@ TSKronos WebService serves as the **control plane API** for Amazon Timestream fo
 - **Authentication & Authorization**: Fine-grained access control through FAS (Fine-grained Access Service)
 - **Resource Metadata Management**: Comprehensive tagging and organization of database resources
 - **Cross-Service Integration**: Seamless integration with AWS services and Alameda building blocks
-- **Compliance & Auditing**: Full request logging and audit trail maintenance
 
 ### High-Level Architecture Components
 
@@ -36,10 +34,7 @@ CAPI Service (Customer API Building Block)
 **CAPI Service Responsibilities:**
 - **Primary Authentication**: Validates customer credentials using AWS IAM
 - **Authorization Enforcement**: Checks customer permissions for requested operations
-- **Rate Limiting & Throttling**: Prevents abuse and ensures fair resource usage
 - **Request Routing**: Directs requests to appropriate backend services
-- **Audit Logging**: Records all API calls for compliance and debugging
-- **Error Handling**: Provides consistent error responses to customers
 
 #### 2. Cross-Account Integration Layer
 ```
@@ -56,12 +51,6 @@ TSKronos Lambda Function (Account B)
 - **Service Discovery**: Automatically locates the correct Lambda function endpoints
 - **Multi-Version Support**: Supports multiple authentication patterns (v1, v2, v3) for backward compatibility
 
-**Why Cross-Account Architecture?**
-- **Security Isolation**: CAPI and backend services operate in separate security domains
-- **Blast Radius Limitation**: Issues in one account don't affect the other
-- **Independent Scaling**: Services can scale independently based on their specific needs
-- **Compliance Requirements**: Meets security requirements for service isolation
-
 #### 3. Core Processing Layer
 ```
 Lambda Function: TSKronosWebService-CoralLambdaFunction
@@ -77,15 +66,12 @@ AWS Services Integration
 - **Business Logic Implementation**: All Timestream InfluxDB API operations
 - **Resource Orchestration**: Coordinates operations across multiple AWS services
 - **Security Token Management**: Handles FAS token encryption/decryption using KMS
-- **Error Handling & Retry Logic**: Implements robust error handling patterns
-- **Performance Optimization**: Memory and execution time optimization
 
 **CLE Role Permissions:**
 - **Core AWS Services**: DynamoDB (metadata), S3 (configurations), StepFunctions (workflows)
 - **Security Services**: SecretsManager (credentials), KMS (encryption keys)
 - **Compute Services**: EC2 (instance management), Lambda (function invocation)
 - **Building Block Access**: Alameda Orchestra, Metadata service, Deploy service
-- **Configuration Services**: SDC (dynamic config), ARS (subscription validation)
 
 #### 4. Monitoring and Observability Layer
 ```
@@ -237,11 +223,9 @@ Java CDK Resources                    →    CBB Resources
 
 The traffic switch operates on a **single configuration change** principle - updating the CAPI service configuration to point to new Paperwork execution roles triggers the entire resource chain automatically.
 
-### Switch Implementation Options
+### Switch Implementation:
 
-#### Option 1: CAPI Configuration Switch (Recommended)
-
-**Location**: CAPI Service Configuration (External System)
+#### CAPI Configuration Switch
 
 **Configuration Change:**
 ```yaml
@@ -266,26 +250,8 @@ paperwork_execution_roles:
 5. **Resource Access**: New execution role accesses CapiFasEncryptionKey-cbb for encryption
 6. **Monitoring**: All CloudWatch logs and alarms automatically use CBB resources
 
-#### Option 2: Lambda Alias Weighted Routing
 
-**Implementation**: Gradual traffic shift using Lambda weighted aliases
-
-**Traffic Distribution:**
-```
-Phase 1: 100% → Java CDK Lambda, 0% → CBB Lambda
-Phase 2: 90% → Java CDK Lambda, 10% → CBB Lambda
-Phase 3: 50% → Java CDK Lambda, 50% → CBB Lambda
-Phase 4: 0% → Java CDK Lambda, 100% → CBB Lambda
-```
-
-**Benefits:**
-- **Gradual Migration**: Reduces risk through incremental traffic shift
-- **Real-time Monitoring**: Ability to monitor CBB performance under increasing load
-- **Quick Rollback**: Immediate rollback capability if issues detected
-
-#### Option 3: Blue-Green Complete Switch
-
-**Implementation**: Complete traffic switch with immediate rollback capability
+#### Execution Plan:
 
 **Process:**
 1. **Deploy CBB (Green)**: Complete CBB infrastructure deployment
@@ -343,7 +309,6 @@ Phase 4: 0% → Java CDK Lambda, 100% → CBB Lambda
 | CapiPaperworkExecutionRole_v2 | CapiPaperworkExecutionRole-cbb_v2 |
 | CapiPaperworkExecutionRole_v3 | CapiPaperworkExecutionRole-cbb_v3 |
 | HydraInvocationRole-{buildingBlockName}-{stage} | HydraInvocationRole-{buildingBlockName}-{stage}-cbb |
-| TajHydraInvocationRole | TajHydraInvocationRole-cbb |
 
 #### Lambda Function Resources (4 Resources)
 | **Current Name** | **New Name with Suffix** |
@@ -365,15 +330,13 @@ Phase 4: 0% → Java CDK Lambda, 100% → CBB Lambda
 | OverallFunctionSuccessRateAlarm-{serviceName} | OverallFunctionSuccessRateAlarm-{serviceName}-cbb |
 | [{stage}][{cellIdentifier}] {functionName} memory utilization alarm | [{stage}][{cellIdentifier}] {functionName}-cbb memory utilization alarm |
 | [{stage}][{cellIdentifier}] Logscan Alarm for {functionName} | [{stage}][{cellIdentifier}] Logscan Alarm for {functionName}-cbb |
-| ControlPlaneLogScan/{functionName} Logscan Errors | ControlPlaneLogScan/{functionName}-cbb Logscan Errors |
 
 #### CDK Construct IDs (2 Resources)
 | **Current Name** | **New Name with Suffix** |
 |------------------|--------------------------|
 | HydraTestRunResources | HydraTestRunResources-cbb |
-| TajHydraTestRunResources | TajHydraTestRunResources-cbb |
 
-**Total: 27 resources requiring manual suffix addition**
+**Total: 24 resources requiring manual suffix addition**
 
 ---
 
@@ -422,40 +385,9 @@ CAPI_FAS_ENCRYPTION_KEY_ARN: {new-cbb-kms-key-arn}
 3. CBB Lambda ARN added to `cellularLambdaArns` array
 4. Paperwork roles automatically reference CBB Lambda ARN in policies
 
-#### 4. CloudFormation System Tags
-**Why Automatic**: AWS CloudFormation automatically manages system tags
-
-**Current Tags:**
-```yaml
-aws:cloudformation:stack-name: "TSKronosWebServiceAPI-alpha-us-west-2"
-aws:cloudformation:stack-id: "{original-stack-id}"
-aws:cloudformation:logical-id: "LambdaFunctionLogGroup"
-```
-
-**CBB Tags (Automatic):**
-```yaml
-aws:cloudformation:stack-name: "TSKronosWebServiceAPI-alpha-us-west-2-cbb"
-aws:cloudformation:stack-id: "{new-cbb-stack-id}"
-aws:cloudformation:logical-id: "LambdaFunctionLogGroup-cbb"
-```
-
 ### Resources Requiring Manual Updates
 
-#### 1. Environment Variable Alias References
-**Why Manual**: Static constants need explicit CBB versions
-
-**Required Change:**
-```typescript
-// CURRENT
-'FasEncryptionKey': ResourceConstants.FAS_ENCRYPTION_KMS_KEY_ALIAS
-
-// NEEDS CHANGE TO
-'FasEncryptionKey': ResourceConstants.FAS_ENCRYPTION_KMS_KEY_ALIAS_CBB
-```
-
-**Technical Explanation**: This environment variable uses a hardcoded constant reference that must be updated to point to the CBB KMS key alias.
-
-#### 2. Resource Constants
+#### 1. Resource Constants
 **Why Manual**: New constants needed for CBB resources
 
 **Required Additions:**
@@ -474,154 +406,11 @@ export const CapiFasEncryptionKeyCbb = 'CapiFasEncryptionKey-cbb';
 
 ---
 
-## Technical Implementation Details and Resource Analysis
-
-This section provides detailed analysis of resource management strategies during the CBB migration, explaining which resources require manual changes versus automatic updates through CDK's Infrastructure as Code capabilities.
-
-### Policy Management for IAM Roles
-
-#### HydraInvocationRole Policy Handling
-**Implementation Status: No Changes Required**
-
-The HydraStack implementation uses inline policy statements rather than managed policies, which eliminates naming conflicts:
-
-```typescript
-const ec2AccessPolicy = new PolicyStatement({
-    sid: 'EC2AccessPolicy',  // Statement ID within policy document
-    effect: Effect.ALLOW,
-    actions: [/* EC2 permissions */],
-    resources: ['*']
-});
-
-hydraInvocationRole.addToPolicy(ec2AccessPolicy);  // Attached as inline policy
-```
-
-**Key Benefits:**
-- Policy statements are inline policies attached directly to each IAM role
-- Statement IDs serve as identifiers within each role's policy document
-- Each role maintains its own separate policy document, preventing cross-role conflicts
-- Inline policies are naturally scoped to their respective roles
-
-### Resource Identification Strategy
-
-#### Physical vs Logical Resource Identifiers
-**Critical Distinction for Migration Planning**
-
-**Physical IDs (AWS Resource Names) - Mandatory Changes:**
-These create actual AWS resources that would conflict between Java CDK and CBB deployments:
-```typescript
-invocationRoleName: `HydraInvocationRole-${buildingBlockName}-${stage}`  // MUST change to include -cbb
-invocationRoleName: "TajHydraInvocationRole"  // MUST change to include -cbb suffix
-```
-
-**Logical IDs (CDK Construct IDs) - Recommended Changes:**
-These are CDK construct identifiers within CloudFormation templates:
-```typescript
-new HydraTestRunResources(this, 'HydraTestRunResources', {...})  // RECOMMENDED to add -cbb suffix
-new HydraTestRunResources(hydraStack, "TajHydraTestRunResources", {...})  // RECOMMENDED to add -cbb suffix
-```
-
-**Logical ID Safety Analysis:**
-- Logical IDs are scoped within their respective CloudFormation stacks
-- Different stacks isolate logical IDs naturally (TSKronosWebServiceHydraStack-alpha vs TSKronosWebServiceHydraStack-alpha-cbb)
-- No conflicts occur between logical IDs in different stacks
-
-**Recommendation Rationale:**
-While logical ID changes are technically optional, they provide significant operational benefits:
-- **Consistency**: Makes resource ownership clear across all resource types
-- **Debugging**: Easier identification in CloudFormation console during troubleshooting
-- **Maintenance**: Clearer code organization and resource tracking for future developers
-
-### Automated Dependency Resolution
-
-#### Paperwork Lambda Resource Integration
-**Implementation Status: Fully Automatic**
-
-The CDK's Infrastructure as Code capabilities handle Lambda ARN propagation automatically:
-
-1. **Lambda Creation**: CoralLambda created with CBB suffix name
-2. **ARN Generation**: CDK automatically generates CBB Lambda ARN from function name
-3. **Array Population**: `cellularLambdaArns.push(lambdaArn)` adds CBB ARN to policy array
-4. **Policy Creation**: Paperwork roles automatically receive policies referencing CBB Lambda ARN
-
-**Code Flow Demonstration:**
-```typescript
-// Lambda function created with CBB name
-const coralLambda = new CoralLambda(this, 'LambdaFunction', {
-    lambdaFunctionName: 'TSKronosWebService-CoralLambdaFunction-cbb'
-});
-
-// ARN automatically generated and propagated
-const lambdaArn = coralLambda.lambdaFunction.functionArn;
-cellularLambdaArns.push(lambdaArn);
-
-// Paperwork roles automatically receive CBB Lambda ARN policies
-CapiPaperworkRoleHelper.createPaperworkExecutionRole(
-    this, cellularLambdaArns, airportCode, ['kronos:*']
-);
-```
-
-**Automation Benefits:**
-- Infrastructure as Code ensures automatic ARN dependency resolution
-- No manual string manipulation required anywhere in the codebase
-- Single point of change principle: modify Lambda function name once, everything else updates automatically
-
-### Environment Variable Management Strategy
-
-#### KMS Key Reference Analysis
-**Mixed Implementation Requirements**
-
-**CAPI_FAS_ENCRYPTION_KEY_ARN - Automatic Update:**
-```typescript
-[ResourceConstants.CAPI_FAS_ENCRYPTION_KEY_ARN]: capiFasEncryptionKeyArn
-```
-This parameter uses dependency injection from CBB InfraStack, automatically providing the CBB KMS key ARN.
-
-**FasEncryptionKey - Manual Update Required:**
-```typescript
-// CURRENT IMPLEMENTATION
-'FasEncryptionKey': ResourceConstants.FAS_ENCRYPTION_KMS_KEY_ALIAS
-
-// REQUIRED CBB IMPLEMENTATION
-'FasEncryptionKey': ResourceConstants.FAS_ENCRYPTION_KMS_KEY_ALIAS_CBB
-```
-This environment variable uses a static constant reference that must be explicitly updated to reference the CBB KMS key alias.
-
-**SECRET_ENCRYPTION_KMS_KEY_ALIAS_ARN - No Changes Required:**
-```typescript
-ResourceConstants.getSecretEncryptionKeyAliasArn(region, accountId)
-// Returns: "arn:aws:kms:region:account:alias/CertificateSecretEncryptionKey"
-```
-This references a shared certificate encryption key that both Java CDK and CBB systems should continue using for certificate interoperability.
-
-### CloudFormation System Tag Management
-
-#### Automatic Tag Propagation
-**Implementation Status: Fully Automatic**
-
-CloudFormation service automatically manages all system tags for resources created through CDK templates:
-
-**System Tags Automatically Updated:**
-- `aws:cloudformation:stack-name`: Updates to reflect new CBB stack name
-- `aws:cloudformation:stack-id`: Receives new unique CBB stack identifier
-- `aws:cloudformation:logical-id`: Updates when CDK construct IDs change
-
-**Example Tag Evolution:**
-```yaml
-# Java CDK Implementation
-aws:cloudformation:stack-name: "TSKronosWebServiceAPI-alpha-us-west-2"
-aws:cloudformation:stack-id: "arn:aws:cloudformation:region:account:stack/TSKronosWebServiceAPI-alpha-us-west-2/original-id"
-
-# CBB Implementation (Automatic)
-aws:cloudformation:stack-name: "TSKronosWebServiceAPI-alpha-us-west-2-cbb"
-aws:cloudformation:stack-id: "arn:aws:cloudformation:region:account:stack/TSKronosWebServiceAPI-alpha-us-west-2-cbb/new-id"
-```
-
 ### Monitoring and Alerting Integration
 
 #### CloudWatch Metrics and Alarms Automation
 **Implementation Status: Fully Automatic**
-
+```
         error: lambdaFunction.metricErrors({
             dimensionsMap: {
                 FunctionName: lambdaFunction.functionName,  // Dynamic property
@@ -643,24 +432,7 @@ aws:cloudformation:stack-id: "arn:aws:cloudformation:region:account:stack/TSKron
 - Alarm names automatically include CBB suffix
 - No hardcoded strings need updating
 
-### Q7: Do MemoryUtilizationAlarm and LogscanAlarm need code changes?
 
-**Answer: NO - These alarms automatically update through Lambda function property references**
-
-**Technical Implementation:**
-```typescript
-// LambdaMonitor receives Lambda function object
-new LambdaMonitor(this, props.stackProps, this.lambdaFunction);
-
-// Alarm names use Lambda function name property
-const memoryAlarm = new Alarm(this.construct, 'MemoryUtilizationAlarm', {
-    alarmName: `[${stage}][${cell}] ${this.lambdaFunction.functionName} memory utilization alarm`
-});
-
-const logscanAlarm = new Alarm(this.construct, 'LogscanAlarm', {
-    alarmName: `[${stage}][${cell}] Logscan Alarm for ${this.lambdaFunction.functionName}`
-});
-```
 
 **Automatic Update Chain:**
 1. **CBB Lambda Creation**: Function created with `-cbb` suffix name
