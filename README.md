@@ -187,7 +187,7 @@ paperwork_execution_roles:
 6. **Monitoring**: All CloudWatch logs and alarms automatically use CBB resources
 
 
-#### Execution Plan:
+### Execution Plan:
 
 **Process:**
 1. **Deploy CBB (Green)**: Complete CBB infrastructure deployment
@@ -276,7 +276,7 @@ paperwork_execution_roles:
 
 ---
 
-## Automatic vs Manual Resource Updates
+## Automatic & Shared Resource Updates
 
 ### Resources That Update Automatically (No Code Changes Required)
 
@@ -321,17 +321,13 @@ CAPI_FAS_ENCRYPTION_KEY_ARN: {new-cbb-kms-key-arn}
 3. CBB Lambda ARN added to `cellularLambdaArns` array
 4. Paperwork roles automatically reference CBB Lambda ARN in policies
 
-### Resources Requiring Manual Updates
+#### 4. CloudWatch Metrics and Alarms Automation
 
-#### 1. Resource Constants
-**Why Manual**: New constants needed for CBB resources
-
-**Required Additions:**
-```typescript
-export const CORAL_LAMBDA_FUNCTION_NAME_CBB = '%s-CoralLambdaFunction-cbb';
-export const FAS_ENCRYPTION_KMS_KEY_ALIAS_CBB = 'alias/FasEncryptionKey-cbb';
-export const CapiFasEncryptionKeyCbb = 'CapiFasEncryptionKey-cbb';
-```
+**Automatic Process Flow:**
+1. CBB Lambda function created with `-cbb` suffix
+2. `lambdaFunction.functionName` property contains CBB name
+3. Metrics automatically use CBB function name in dimensions
+4. Template literals automatically include CBB suffix in Resource dimension
 
 ### Shared Resources (No Changes Needed)
 
@@ -339,44 +335,6 @@ export const CapiFasEncryptionKeyCbb = 'CapiFasEncryptionKey-cbb';
 **Resource**: `SECRET_ENCRYPTION_KMS_KEY_ALIAS_ARN`
 **Why No Change**: Points to shared `CertificateSecretEncryptionKey` used by both systems
 **Technical Explanation**: Certificate encryption should remain shared to maintain certificate interoperability between Java CDK and CBB systems.
-
----
-
-### Monitoring and Alerting Integration
-
-#### CloudWatch Metrics and Alarms Automation
-**Implementation Status: Fully Automatic**
-```
-        error: lambdaFunction.metricErrors({
-            dimensionsMap: {
-                FunctionName: lambdaFunction.functionName,  // Dynamic property
-                Resource: `${lambdaFunction.functionName}:${alias.aliasName}`  // Template literal
-            }
-        })
-    }
-});
-```
-
-**Automatic Update Process:**
-1. CBB Lambda function created with `-cbb` suffix
-2. `lambdaFunction.functionName` property contains CBB name
-3. Metrics automatically use CBB function name in dimensions
-4. Template literals automatically include CBB suffix in Resource dimension
-
-**Result - No Manual Changes Required:**
-- All metric dimensions automatically reference CBB Lambda function
-- Alarm names automatically include CBB suffix
-- No hardcoded strings need updating
-
-
-
-**Automatic Update Chain:**
-1. **CBB Lambda Creation**: Function created with `-cbb` suffix name
-2. **LambdaMonitor Instantiation**: Monitor receives CBB Lambda function object
-3. **Property Resolution**: `this.lambdaFunction.functionName` contains CBB name
-4. **Alarm Creation**: Alarm names automatically include CBB function name
-
-**No Manual Updates Required**: Property-based naming ensures automatic updates without code changes.
 
 ---
 
@@ -397,13 +355,5 @@ export const CapiFasEncryptionKeyCbb = 'CapiFasEncryptionKey-cbb';
 - **Single Point of Switch**: CAPI configuration change triggers entire resource chain
 - **Zero Downtime**: Both systems coexist during migration with instant rollback capability
 - **Minimal Code Changes**: Most resources update automatically through property references
-
-### Risk Mitigation
-
-- **Gradual Migration Options**: Multiple traffic switching strategies available
-- **Comprehensive Testing**: Hydra integration tests validate all functionality
-- **Monitoring Coverage**: Complete observability during and after migration
-- **Rollback Capability**: Immediate rollback through CAPI configuration reversion
-- **Resource Cleanup**: Systematic cleanup process after validation period
 
 This architecture ensures a robust, zero-downtime migration from Java CDK to TypeScript CBB while maintaining full functionality and operational excellence.
