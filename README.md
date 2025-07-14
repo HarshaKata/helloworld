@@ -111,108 +111,44 @@ Production Readiness Validation
 
 ---
 
-## Complete Request Flow Analysis
+### Complete Request Flow (Current Java CDK)
 
-### Current Java CDK Request Flow
-
-#### Step 1: Customer Request Initiation
 ```mermaid
-sequenceDiagram
-    participant Customer as Customer Application
-    participant Gateway as AWS API Gateway
-    participant CAPI as CAPI Service
-    
-    Customer->>Gateway: API Request (CreateDatabase)
-    Gateway->>CAPI: Route Request
-    CAPI->>CAPI: Authenticate Customer
-    CAPI->>CAPI: Authorize Request
-    CAPI->>CAPI: Apply Rate Limiting
+graph TD
+    A[Customer API Call] --> B[AWS API Gateway]
+    B --> C[CAPI Service]
+    C --> D[AssumeRole: CapiPaperworkExecutionRole]
+    D --> E[Paperwork Framework]
+    E --> F[Lambda: TSKronosWebService-CoralLambdaFunction]
+    F --> G[Execution Role: TSKronosWebServiceCLERole]
+    G --> H[KMS: CapiFasEncryptionKey Decrypt]
+    H --> I[Business Logic Processing]
+    I --> J[AWS Services: DynamoDB/S3/StepFunctions]
+    I --> K[Building Blocks: Alameda/Metadata]
+    I --> L[CloudWatch Logs]
+    L --> M[CloudWatch Alarms]
+    M --> N[CodeDeploy Monitoring]
 ```
 
-**What Happens:**
-1. **Customer Authentication**: AWS IAM validates customer credentials
-2. **Request Validation**: API Gateway validates request format and parameters
-3. **Rate Limiting**: CAPI enforces per-customer rate limits
-4. **Authorization Check**: CAPI verifies customer has permission for the operation
+### New Architecture (CBB with Suffix Strategy)
 
-#### Step 2: Cross-Account Service Invocation
+The CBB version creates **parallel infrastructure** with `-cbb` suffixes:
+
 ```mermaid
-sequenceDiagram
-    participant CAPI as CAPI Service
-    participant Paperwork as Paperwork Framework
-    participant Lambda as TSKronos Lambda
-    
-    CAPI->>Paperwork: AssumeRole (CapiPaperworkExecutionRole)
-    Paperwork->>Paperwork: Validate External ID
-    Paperwork->>Lambda: Invoke Function
-    Lambda->>Lambda: Execute Business Logic
-```
-
-**What Happens:**
-1. **Role Assumption**: CAPI assumes CapiPaperworkExecutionRole with external ID validation
-2. **Security Verification**: Paperwork validates the external ID condition ('kronos:*')
-3. **Function Invocation**: Lambda function receives the request payload
-4. **Context Setup**: Lambda establishes execution context with CLE role
-
-#### Step 3: Core Business Logic Execution
-```mermaid
-sequenceDiagram
-    participant Lambda as Lambda Function
-    participant CLE as CLE Execution Role
-    participant KMS as CapiFasEncryptionKey
-    participant Services as AWS Services
-    
-    Lambda->>CLE: Assume Execution Role
-    Lambda->>KMS: Decrypt FAS Tokens
-    Lambda->>Services: DynamoDB/S3/StepFunctions Operations
-    Lambda->>Services: Building Block Integrations
-```
-
-**What Happens:**
-1. **Role Assumption**: Lambda assumes TSKronosWebServiceCLERole for AWS service access
-2. **Token Decryption**: FAS tokens are decrypted using CapiFasEncryptionKey
-3. **Service Operations**: Database metadata operations via DynamoDB, configuration via S3
-4. **Workflow Orchestration**: Complex operations via StepFunctions
-5. **Building Block Integration**: Calls to Alameda Orchestra, Metadata services
-
-#### Step 4: Response and Monitoring
-```mermaid
-sequenceDiagram
-    participant Lambda as Lambda Function
-    participant Logs as CloudWatch Logs
-    participant Alarms as CloudWatch Alarms
-    participant Customer as Customer
-    
-    Lambda->>Logs: Write Execution Logs
-    Lambda->>Customer: Return Response
-    Logs->>Alarms: Trigger Metric Filters
-    Alarms->>Alarms: Evaluate Alarm Conditions
-```
-
-**What Happens:**
-1. **Response Generation**: Lambda formats and returns the API response
-2. **Logging**: All execution details logged to CloudWatch
-3. **Metric Generation**: Performance and error metrics collected
-4. **Alarm Evaluation**: CloudWatch alarms evaluate against thresholds
-
-### New CBB Request Flow
-
-The CBB (Custom Building Block) version maintains identical business logic while using parallel infrastructure:
-
-#### Key Differences in CBB Flow:
-1. **Parallel Resource Names**: All AWS resources have `-cbb` suffix
-2. **Identical Business Logic**: Same Lambda code, same AWS service interactions
-3. **Isolated Infrastructure**: Complete resource isolation during migration
-4. **Same External Interface**: No changes visible to customers
-
-#### CBB Resource Mapping:
-```
-Java CDK Resources                    →    CBB Resources
-├── CapiPaperworkExecutionRole       →    CapiPaperworkExecutionRole-cbb
-├── TSKronosWebService-Lambda        →    TSKronosWebService-Lambda-cbb
-├── TSKronosWebServiceCLERole        →    TSKronosWebServiceCLERole-cbb
-├── CapiFasEncryptionKey             →    CapiFasEncryptionKey-cbb
-└── CloudWatch Resources             →    CloudWatch Resources-cbb
+graph TD
+    A[Customer API Call] --> B[AWS API Gateway]
+    B --> C[CAPI Service]
+    C --> D[AssumeRole: CapiPaperworkExecutionRole-cbb]
+    D --> E[Paperwork Framework]
+    E --> F[Lambda: TSKronosWebService-CoralLambdaFunction-cbb]
+    F --> G[Execution Role: TSKronosWebServiceCLERole-cbb]
+    G --> H[KMS: CapiFasEncryptionKey-cbb Decrypt]
+    H --> I[Business Logic Processing - SAME CODE]
+    I --> J[AWS Services: DynamoDB/S3/StepFunctions - SAME]
+    I --> K[Building Blocks: Alameda/Metadata - SAME]
+    I --> L[CloudWatch Logs: /aws/lambda/functionName-cbbLog]
+    L --> M[CloudWatch Alarms: memory-cbb, logscan-cbb]
+    M --> N[CodeDeploy: CoralLambdaDeploymentGroup-cbb]
 ```
 
 ---
